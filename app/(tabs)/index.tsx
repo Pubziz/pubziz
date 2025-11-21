@@ -1,102 +1,85 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Card, Avatar, Divider, useTheme, Text, Title } from 'react-native-paper';
+import { sampleData } from '@/lib/mapData';
+import type { Pub } from '@/lib/types';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-
-import { PaperProvider } from 'react-native-paper';
+const getId = (pub: Pub, idx: number) => ((pub as any).id ? String((pub as any).id) : String(idx));
+const initials = (name?: string) =>
+  (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0].toUpperCase())
+    .join('');
 
 export default function HomeScreen() {
-  return (
-    <PaperProvider>
-      <ParallaxScrollView
-        headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-        headerImage={
-          <Image
-            source={require('@/assets/images/partial-react-logo.png')}
-            style={styles.reactLogo}
-          />
-        }>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="title">nigga!</ThemedText>
-          <HelloWave />
-        </ThemedView>
-        <ThemedView style={styles.stepContainer}>
-          <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-          <ThemedText>
-            Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-            Press{' '}
-            <ThemedText type="defaultSemiBold">
-              {Platform.select({
-                ios: 'cmd + d',
-                android: 'cmd + m',
-                web: 'F12',
-              })}
-            </ThemedText>{' '}
-            to open developer tools.
-          </ThemedText>
-        </ThemedView>
-        <ThemedView style={styles.stepContainer}>
-          <Link href="/modal">
-            <Link.Trigger>
-              <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-            </Link.Trigger>
-            <Link.Preview />
-            <Link.Menu>
-              <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-              <Link.MenuAction
-                title="Share"
-                icon="square.and.arrow.up"
-                onPress={() => alert('Share pressed')}
-              />
-              <Link.Menu title="More" icon="ellipsis">
-                <Link.MenuAction
-                  title="Delete"
-                  icon="trash"
-                  destructive
-                  onPress={() => alert('Delete pressed')}
-                />
-              </Link.Menu>
-            </Link.Menu>
-          </Link>
+  const router = useRouter();
+  const theme = useTheme();
 
-          <ThemedText>
-            {`Tap the Explore tab to learn more about what's included in this starter app.`}
-          </ThemedText>
-        </ThemedView>
-        <ThemedView style={styles.stepContainer}>
-          <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-          <ThemedText>
-            {`When you're ready, run `}
-            <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-            <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-            <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-            <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-          </ThemedText>
-        </ThemedView>
-      </ParallaxScrollView>
-    </PaperProvider>
+  const renderItem = ({ item, index }: { item: Pub; index: number }) => {
+    const id = getId(item, index);
+    return (
+      <Card
+        mode="elevated"
+        style={[styles.card, { backgroundColor: theme.colors.surface }]}
+        elevation={2}
+        onPress={() => router.push(`/(tabs)/map/${id}`)}
+      >
+        <Card.Title
+          title={item.name}
+          subtitle={item.address}
+          left={() => (
+            <Avatar.Text
+              size={44}
+              label={initials(item.name)}
+              style={{ backgroundColor: theme.colors.primary }}
+            />
+          )}
+        />
+        <Card.Content>
+          {item.items && item.items.length ? (
+            <Text numberOfLines={2} variant="bodyMedium">
+              {item.items[0].name} — {item.items[0].price}
+            </Text>
+          ) : (
+            <Text numberOfLines={2} variant="bodyMedium" style={{ color: theme.colors.primary }}>
+              No items listed
+            </Text>
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={[styles.content, { maxWidth: 900, alignSelf: 'center' }]}
+        data={sampleData}
+        keyExtractor={(item, i) => getId(item, i)}
+        renderItem={renderItem}
+        ItemSeparatorComponent={() => <Divider />}
+        ListEmptyComponent={<Text style={[styles.empty, { color: theme.colors.primary }]}>No pubs available</Text>}
+        ListHeaderComponent={() => (
+          <View style={styles.headerWrap}>
+            <Title style={[styles.header, { color: theme.colors.onBackground }]}>Hospody</Title>
+          </View>
+        )}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  safe: { flex: 1 },
+  list: { flex: 1 },
+  content: { padding: 12, paddingBottom: 24 },
+  card: { marginBottom: 10 },
+  empty: { textAlign: 'center', marginTop: 40 },
+  headerWrap: { paddingHorizontal: 4, paddingBottom: 16 },
+  header: { fontSize: 32, fontWeight: '800' },
 });
