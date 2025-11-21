@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Card, Avatar, Divider, useTheme, Text, Title } from 'react-native-paper';
-import { sampleData } from '@/lib/mapData';
+import { Card, Avatar, Divider, useTheme, Text, Title, ActivityIndicator } from 'react-native-paper';
 import type { Pub } from '@/lib/types';
 
 const getId = (pub: Pub, idx: number) => ((pub as any).id ? String((pub as any).id) : String(idx));
@@ -18,6 +17,26 @@ const initials = (name?: string) =>
 export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const [pubs, setPubs] = useState<Pub[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPubs = async () => {
+      try {
+        const response = await fetch('http://172.20.10.3:9999/pubs');
+        if (!response.ok) throw new Error('Failed to fetch pubs');
+        const data: Pub[] = await response.json();
+        console.log(data);
+        setPubs(data);
+      } catch (error) {
+        console.error('Error fetching pubs:', error);
+        setPubs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPubs();
+  }, []);
 
   const renderItem = ({ item, index }: { item: Pub; index: number }) => {
     const id = getId(item, index);
@@ -56,30 +75,44 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
-      <FlatList
-        style={styles.list}
-        contentContainerStyle={[styles.content, { maxWidth: 900, alignSelf: 'center' }]}
-        data={sampleData}
-        keyExtractor={(item, i) => getId(item, i)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <Divider />}
-        ListEmptyComponent={<Text style={[styles.empty, { color: theme.colors.primary }]}>No pubs available</Text>}
-        ListHeaderComponent={() => (
-          <View style={styles.headerWrap}>
-            <Title style={[styles.header, { color: theme.colors.onBackground }]}>Hospody</Title>
+      <>
+        {loading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator />
+            <Text style={{ marginTop: 8 }}>Loading pubs…</Text>
           </View>
+        ) : (
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={styles.content}
+            data={pubs}
+            keyExtractor={(item, i) => getId(item, i)}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <Divider />}
+            ListEmptyComponent={<Text style={[styles.empty, { color: theme.colors.primary }]}>No pubs available</Text>}
+            ListHeaderComponent={() => (
+              <View style={styles.headerWrap}>
+                <Title style={[styles.header, { color: theme.colors.onBackground }]}>Hospody</Title>
+              </View>
+            )}
+          />
         )}
-      />
+      </>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: '#f5f5f5' },
   list: { flex: 1 },
-  content: { padding: 12, paddingBottom: 24 },
-  card: { marginBottom: 10 },
-  empty: { textAlign: 'center', marginTop: 40 },
-  headerWrap: { paddingHorizontal: 4, paddingBottom: 16 },
-  header: { fontSize: 32, fontWeight: '800' },
+  content: { padding: 16, paddingBottom: 24 },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  card: { marginBottom: 12, elevation: 3 },
+  empty: { textAlign: 'center', marginTop: 40, fontSize: 16 },
+  headerWrap: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 8 },
+  header: { fontSize: 28, fontWeight: 'bold' },
 });

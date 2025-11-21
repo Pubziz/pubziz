@@ -1,4 +1,5 @@
 interface Pub {
+  id: number;
   name: string
   address: string
   url: string

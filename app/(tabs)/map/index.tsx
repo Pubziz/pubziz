@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { sampleData } from '@/lib/mapData';
 import * as Location from 'expo-location';
+import type { Pub } from '@/lib/types';
 
 let MapView: any = null;
 let Marker: any = null;
@@ -41,6 +41,8 @@ export default function MapScreen() {
   const [hasUserLocation, setHasUserLocation] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [locations, setLocations] = useState<LocEntry[]>([]);
+  const [pubs, setPubs] = useState<Pub[]>([]);
+  const [loadingPubs, setLoadingPubs] = useState(true);
   const geocodeCache = useRef<Record<string, { latitude: number; longitude: number }>>({});
 
   // request user location & center on user if allowed
@@ -66,14 +68,35 @@ export default function MapScreen() {
     })();
   }, []);
 
+  // fetch pubs from server
+  useEffect(() => {
+    const fetchPubs = async () => {
+      try {
+        const response = await fetch('http://172.20.10.3:9999/pubs');
+        if (!response.ok) throw new Error('Failed to fetch pubs');
+        const data: Pub[] = await response.json();
+        setPubs(data);
+      } catch (error) {
+        console.error('Error fetching pubs:', error);
+        // fallback to sample data if needed, but for now just set empty
+        setPubs([]);
+      } finally {
+        setLoadingPubs(false);
+      }
+    };
+    fetchPubs();
+  }, []);
+
   // geocode addresses (uses expo-location geocodeAsync). caches results to avoid repeated requests.
   useEffect(() => {
+    if (loadingPubs || pubs.length === 0) return;
+
     let mounted = true;
     (async () => {
       const out: LocEntry[] = [];
 
-      for (let idx = 0; idx < sampleData.length; idx++) {
-        const pub = sampleData[idx] as any;
+      for (let idx = 0; idx < pubs.length; idx++) {
+        const pub = pubs[idx] as any;
         const id = pub.id ? String(pub.id) : String(idx);
         let coordinate: { latitude: number; longitude: number } | null = null;
 
@@ -119,7 +142,7 @@ export default function MapScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [pubs, loadingPubs]);
 
   // when map ready and we have markers or user location, adjust view
   useEffect(() => {
@@ -167,10 +190,10 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {locations.length === 0 && (
+      {(locations.length === 0 || loadingPubs) && (
         <View style={styles.loading}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 8 }}>Geocoding addresses…</Text>
+          <Text style={{ marginTop: 8 }}>{loadingPubs ? 'Loading pubs…' : 'Geocoding addresses…'}</Text>
         </View>
       )}
 

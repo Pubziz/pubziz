@@ -1,35 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, View, StyleSheet, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { sampleData } from '@/lib/mapData';
 import { Card, Title, Paragraph, Button, Divider, List, useTheme, Text } from 'react-native-paper';
-import type { PubItem } from '@/lib/types';
+import type { Pub, PubItem } from '@/lib/types';
 
 export default function LocationDetail() {
   const { id } = useLocalSearchParams() as { id?: string };
   const router = useRouter();
   const theme = useTheme();
+  const [pub, setPub] = useState<Pub | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const locations = sampleData.map((pub, idx) => {
-    const pubId = (pub as any).id ? String((pub as any).id) : String(idx);
-    let coordinate: { latitude: number; longitude: number } | null = null;
-
-    if ((pub as any).coordinate && typeof (pub as any).coordinate.latitude === 'number') {
-      coordinate = (pub as any).coordinate;
-    } else if (typeof pub.address === 'string') {
-      const m = pub.address.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
-      if (m) coordinate = { latitude: parseFloat(m[1]), longitude: parseFloat(m[3]) };
+  useEffect(() => {
+    if (!id) {
+      setError('No ID provided');
+      setLoading(false);
+      return;
     }
 
-    return { id: pubId, pub, coordinate };
-  });
+    const fetchPub = async () => {
+      try {
+        const response = await fetch(`http://172.20.10.3:9999/pubs/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch pub');
+        const data: Pub = await response.json();
+        setPub(data);
+      } catch (err) {
+        console.error('Error fetching pub:', err);
+        setError('Failed to load pub details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPub();
+  }, [id]);
 
-  const entry = locations.find((l) => l.id === id);
-
-  if (!entry) {
+  if (loading) {
     return (
       <View style={styles.center}>
-        <Text>Location not found</Text>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (error || !pub) {
+    return (
+      <View style={styles.center}>
+        <Text>{error || 'Pub not found'}</Text>
         <Button mode="contained" onPress={() => router.push('/')} style={{ marginTop: 12 }}>
           Back to home
         </Button>
@@ -37,7 +54,12 @@ export default function LocationDetail() {
     );
   }
 
-  const { pub, coordinate } = entry;
+  let coordinate: { latitude: number; longitude: number } | null = null;
+  if (typeof pub.address === 'string') {
+    const m = pub.address.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+    if (m) coordinate = { latitude: parseFloat(m[1]), longitude: parseFloat(m[3]) };
+  }
+
   const items: PubItem[] = Array.isArray(pub.items) ? pub.items : [];
 
   const openWebsite = async (url?: string) => {
