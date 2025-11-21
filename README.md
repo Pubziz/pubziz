@@ -1,0 +1,2 @@
+# pubziz
+Zizkov Pubs Scraper
